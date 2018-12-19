@@ -6,8 +6,8 @@ import os
 import sys
 import subprocess
 
-ENVS = [('HITCH_SALT', 'abc'), ('HITCH_API_KEY', 'mysecret'),
-        ('HITCH_CONTRIBUTOR_NODE', 'https://localhost:8952'), ('REQUESTS_CA_VERIFY', '0')]
+ENVS = [('HITCH_API_KEY', 'mysecret'), ('HITCH_CONTRIBUTOR_NODE', 'https://localhost:8952'),
+        ('REQUESTS_CA_VERIFY', '0')]
 UUID = '26e1587a-6a64-4d78-b7f5-fa3efbdebe67'
 
 
@@ -34,7 +34,7 @@ def test_00(sub_result):
             exit(1)
 
     # Check for record with personid and token
-    for record in ['1,27690881249063506', '2,24077688493022642']:
+    for record in ['1,11758510445741534', '2,42976496234352882']:
         if record not in str(sub_result.stdout):
             print('Test_00: Fail: {} not in output result'.format(record))
             exit(1)

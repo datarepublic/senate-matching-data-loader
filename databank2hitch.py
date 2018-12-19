@@ -272,7 +272,11 @@ def parse_line(parsing_line):
 
 def senate_hash(base_field, value):
     """senate_hash is hashing given field as the contributor node"""
-    salt = DATABANK_SENATE_MATCHING_MAPPING[base_field]['salt']
+    try:
+        salt = DATABANK_SENATE_MATCHING_MAPPING[base_field]['salt']
+    except KeyError:
+        eprint('Error: contributor node is misconfigured. Missing field [{}].'.format(base_field))
+        exit(2)
     hsh = hashlib.sha512((value + salt).encode('utf-8'))
     return base64.b64encode(hsh.digest()).decode('utf-8')
 
