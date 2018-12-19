@@ -69,7 +69,7 @@ DATABANK_HEADERS = {}
 # Ex: {'natural_key': 'personid', 'phone': 'phone:0', 'email': 'email:0'}
 MATCH = {}
 
-MANDATORY_ENVIRONMENT_FIELDS = ['HITCH_CONTRIBUTOR_NODE', 'HITCH_API_KEY', 'HITCH_SALT']
+MANDATORY_ENVIRONMENT_FIELDS = ['HITCH_CONTRIBUTOR_NODE', 'HITCH_API_KEY']
 HITCH_BUF_FILENAME = '.buf_hitch.csv'
 
 
@@ -87,6 +87,37 @@ def requests_ca_verify():
         eprint('Invalid value for REQUESTS_CA_VERIFY. Either set it to a path for '
                'a CA certificate key or to a boolean')
         exit(3)
+
+
+def retrieve_salts(hostname, static_auth, ca_verify=True):
+    """retrieve salt value per field from GlobalConfig"""
+    try:
+        salt_req = requests.get(hostname + 'GlobalConfig', auth=static_auth, verify=ca_verify)
+        salt_req.raise_for_status()
+        payload = salt_req.json()['Fields']
+
+        for field_id in payload:
+            name = payload[field_id]['FieldName']
+            salt = payload[field_id]['HashSalt']
+            DATABANK_SENATE_MATCHING_MAPPING[name]['salt'] = salt
+    except requests.exceptions.SSLError:
+        eprint("Error: Invalid certificate. Update your environment variables "
+               "by either using your system's trusted CAs with "
+               "REQUESTS_CA_BUNDLE or set REQUESTS_CA_VERIFY to false")
+        exit(2)
+    except requests.exceptions.ConnectionError:
+        eprint('Error: contributor node is unreachable')
+        exit(2)
+    except requests.HTTPError as ex:
+        print(ex)
+        eprint('Error {}: {}'.format(salt_req.status_code, salt_req.text.rstrip()))
+        exit(2)
+    except ValueError:
+        eprint('Error: error decoding the response')
+        exit(2)
+    except KeyError as ex:
+        eprint('Error: invalid payload received. KeyError: {}'.format(ex))
+        exit(2)
 
 
 def eprint(*args, **kwargs):
@@ -235,13 +266,14 @@ def parse_line(parsing_line):
                 and DATABANK_SENATE_MATCHING_MAPPING[field]['primary']:
             newline[MATCH[key_tpl]] = normalized_element
         else:
-            newline[MATCH[key_tpl]] = senate_hash(normalized_element)
+            newline[MATCH[key_tpl]] = senate_hash(field, normalized_element)
     return newline
 
 
-def senate_hash(field):
+def senate_hash(base_field, value):
     """senate_hash is hashing given field as the contributor node"""
-    hsh = hashlib.sha512((field + os.environ['HITCH_SALT']).encode('utf-8'))
+    salt = DATABANK_SENATE_MATCHING_MAPPING[base_field]['salt']
+    hsh = hashlib.sha512((value + salt).encode('utf-8'))
     return base64.b64encode(hsh.digest()).decode('utf-8')
 
 
@@ -263,8 +295,10 @@ def clean_buf_env():
 
 
 def hitch_contributor_node_url():
-    """hitch_contributor_node_url performs a scheme clean up"""
+    """hitch_contributor_node_url performs a scheme and trailing slash clean up"""
     hcn = os.environ['HITCH_CONTRIBUTOR_NODE']
+    if hcn.endswith('/'):
+        hcn = hcn[:-1]
     if hcn.startswith('https://'):
         return '{}/api/Contributor/v1/'.format(hcn)
     return 'https://{}/api/Contributor/v1/'.format(hcn)
@@ -347,15 +381,16 @@ if __name__ == '__main__':
 
     validate_env()
     clean_buf_env()
-    generate_hitch_csv(read_csv(args.input))
-
-    req_ca_verify = requests_ca_verify()
-    if isinstance(req_ca_verify, bool) and not req_ca_verify:
-        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
     host = hitch_contributor_node_url()
     params = {'DBUUID': args.uuid}
     auth = HTTPBasicAuth('api', os.environ['HITCH_API_KEY'])
+    req_ca_verify = requests_ca_verify()
+    if isinstance(req_ca_verify, bool) and not req_ca_verify:
+        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+    retrieve_salts(host, auth, req_ca_verify)
+    generate_hitch_csv(read_csv(args.input))
 
     try:
         load_req = requests.post(host + 'LoadHashedRecords', params=params,
