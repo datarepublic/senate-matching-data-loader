@@ -16,6 +16,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
+
 DATABANK_SENATE_MATCHING_MAPPING = {
     'personid': {
         'aliases': ['personid', 'natural_key'],
@@ -94,12 +95,16 @@ def retrieve_salts(hostname, static_auth, ca_verify=True):
     try:
         salt_req = requests.get(hostname + 'GlobalConfig', auth=static_auth, verify=ca_verify)
         salt_req.raise_for_status()
-        payload = salt_req.json()['Fields']
+        payload = salt_req.json()
 
-        for field_id in payload:
-            name = payload[field_id]['FieldName']
-            salt = payload[field_id]['HashSalt']
-            DATABANK_SENATE_MATCHING_MAPPING[name]['salt'] = salt
+        for field_def in [('Fields', 'FieldName'), ('FieldQualifiers', 'Name')]:
+            type_def, name_def = field_def
+            for field in payload[type_def]:
+                name = payload[type_def][field][name_def]
+                if name in DATABANK_SENATE_MATCHING_MAPPING:
+                    DATABANK_SENATE_MATCHING_MAPPING[name]['salt'] = payload[type_def][field][
+                        'HashSalt']
+
     except requests.exceptions.SSLError:
         eprint("Error: Invalid certificate. Update your environment variables "
                "by either using your system's trusted CAs with "
@@ -262,21 +267,18 @@ def parse_line(parsing_line):
             return None
 
         # The primary key_tpl must not be hashed
+        match_key = MATCH[key_tpl]
         if 'primary' in DATABANK_SENATE_MATCHING_MAPPING[field] \
                 and DATABANK_SENATE_MATCHING_MAPPING[field]['primary']:
-            newline[MATCH[key_tpl]] = normalized_element
+            newline[match_key] = normalized_element
         else:
-            newline[MATCH[key_tpl]] = senate_hash(field, normalized_element)
+            newline[match_key] = senate_hash(match_key, normalized_element)
     return newline
 
 
 def senate_hash(base_field, value):
     """senate_hash is hashing given field as the contributor node"""
-    try:
-        salt = DATABANK_SENATE_MATCHING_MAPPING[base_field]['salt']
-    except KeyError:
-        eprint('Error: contributor node is misconfigured. Missing field [{}].'.format(base_field))
-        exit(2)
+    salt = DATABANK_SENATE_MATCHING_MAPPING[base_field]['salt']
     hsh = hashlib.sha512((value + salt).encode('utf-8'))
     return base64.b64encode(hsh.digest()).decode('utf-8')
 
