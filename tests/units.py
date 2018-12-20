@@ -4,7 +4,9 @@
 
 import os
 import unittest
+from requests.auth import HTTPBasicAuth
 import databank2hitch
+import responses
 
 
 def list_of_aliases():
@@ -80,12 +82,47 @@ class TestDatabank2Hitch(unittest.TestCase):
         for value in any_values:
             self.assertEqual(databank2hitch.normalize(value, 'anything'), str(value))
 
+    @responses.activate
+    def test_retrieve_salts(self):
+        """test_retrieve_salts"""
+        hostname = 'http://localhost/'
+        global_config = {
+            "Databases": {
+                "26e1587a-6a64-4d78-b7f5-fa3efbdebe67": {
+                    "Fields": {
+                        "1": {},
+                        "2": {}
+                    },
+                    "DBName": "Database Two"
+                }
+            },
+            "Fields": {
+                "1": {
+                    "FieldName": "email",
+                    "NormalizationMethod": "email",
+                    "HashSalt": "9da8b01a3ab64fcc8e39ebd5c4cf21e7"
+                },
+                "2": {
+                    "FieldName": "phone",
+                    "NormalizationMethod": "phone",
+                    "HashSalt": "ff14d4eff61149c193d5b212f2c2d15b"
+                }
+            }
+        }
+        responses.add(responses.GET, hostname + 'GlobalConfig',
+                      json=global_config, status=200)
+        auth = HTTPBasicAuth('api', 'passw0rd')
+        databank2hitch.retrieve_salts(hostname, auth, False)
+        for tpl in [('email', '9da8b01a3ab64fcc8e39ebd5c4cf21e7'),
+                    ('phone', 'ff14d4eff61149c193d5b212f2c2d15b')]:
+            self.assertEqual(databank2hitch.DATABANK_SENATE_MATCHING_MAPPING[tpl[0]]['salt'],
+                             tpl[1])
+
     def test_senate_hash(self):
         """test_senate_hash"""
-        os.environ['HITCH_SALT'] = 'abc'
-        self.assertEqual(databank2hitch.senate_hash('anything'),
-                         'vrfHcHDoxc62MwctIH3DE6yu61vUuFnievRFOItLczV2oImiEq8yXX85ZqRFW'
-                         'vrfB2uVNRdVHrzuPierbDAvNg==')
+        self.assertEqual(databank2hitch.senate_hash('email', 'anything'),
+                         'H8RshG0mb5TVWhHKl28aH7xNZkLg23R/F6akSpHkS9E0joL'
+                         'TPh4ueA0U19a0PzLyWZ8HhPbgPUnfosv4ncmePg==')
 
     def test_hitch_contributor_node_url(self):
         """test_hitch_contributor_node_url"""
