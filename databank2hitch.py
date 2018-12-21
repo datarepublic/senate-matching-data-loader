@@ -170,7 +170,6 @@ def parse_headers(headers):
     # First loop looking at match equivalent, mandatory fields and multi value position
     for header in headers:
         matching_field = find_matching_field(header)
-        # Print a warning if the field is not expected
         if matching_field is None:
             eprint('Warning: [{}] header is not expected and will be ignored'.format(header))
             continue
@@ -262,8 +261,6 @@ def parse_line(parsing_line):
         normalized_element = normalize(value_tpl, norm_method)
 
         if not normalized_element:
-            eprint('Warning: {} is not from the expected format [{}] for {} '
-                   'and will be ignored.'.format(value_tpl, norm_method, key_tpl))
             return None
 
         # The primary key_tpl must not be hashed
@@ -272,7 +269,7 @@ def parse_line(parsing_line):
                 and DATABANK_SENATE_MATCHING_MAPPING[field]['primary']:
             newline[match_key] = normalized_element
         else:
-            newline[match_key] = senate_hash(match_key, normalized_element)
+            newline[match_key] = senate_hash(field, normalized_element)
     return newline
 
 
