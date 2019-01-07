@@ -130,10 +130,10 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
-def read_csv(input_type):
+def read_csv(input_type, delimiter):
     """read_csv_stdin processes CSV from stdin line by line"""
     for row in csv.DictReader(iter(input_type.readline, ''),
-                              skipinitialspace=True, delimiter=',', quoting=csv.QUOTE_NONE):
+                              skipinitialspace=True, delimiter=delimiter, quoting=csv.QUOTE_NONE):
         if row:
             yield row
 
@@ -261,7 +261,7 @@ def parse_line(parsing_line):
         normalized_element = normalize(value_tpl, norm_method)
 
         if not normalized_element:
-            return None
+            continue
 
         # The primary key_tpl must not be hashed
         match_key = MATCH[key_tpl]
@@ -380,6 +380,9 @@ if __name__ == '__main__':
                         type=argparse.FileType('wt', encoding='UTF-8'),
                         default=sys.stdout,
                         required=False)
+    parser.add_argument('-d', '--delimiter', help='CSV Delimiter on the input file. Comma by default. To use tab, enter: $\'\\t\'',
+                        default=',',
+                        required=False)
     args = parser.parse_args()
 
     validate_env()
@@ -393,7 +396,7 @@ if __name__ == '__main__':
         requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
     retrieve_salts(host, auth, req_ca_verify)
-    generate_hitch_csv(read_csv(args.input))
+    generate_hitch_csv(read_csv(args.input, args.delimiter))
 
     try:
         load_req = requests.post(host + 'LoadHashedRecords', params=params,
