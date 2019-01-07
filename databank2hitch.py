@@ -71,7 +71,7 @@ DATABANK_HEADERS = {}
 MATCH = {}
 
 MANDATORY_ENVIRONMENT_FIELDS = ['HITCH_CONTRIBUTOR_NODE', 'HITCH_API_KEY']
-HITCH_BUF_FILENAME = '.buf_hitch.csv'
+HITCH_BUF_FILENAME = '.databank2hitch_script.csv'
 
 
 def requests_ca_verify():
