@@ -4,18 +4,21 @@
 and uploads it into the specified Contributor Node"""
 
 from __future__ import print_function
-import csv
+
 import argparse
-import sys
+import base64
+import csv
+import hashlib
 import os
 import re
+import subprocess
+import sys
 from distutils.util import strtobool
-import base64
-import hashlib
+
+import regex
 import requests
 from requests.auth import HTTPBasicAuth
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-
 
 DATABANK_SENATE_MATCHING_MAPPING = {
     'personid': {
@@ -24,40 +27,39 @@ DATABANK_SENATE_MATCHING_MAPPING = {
         'multivalue': False,
         'normalization': 'str',
         'primary': True
-        },
+    },
     'family_name': {
         'aliases': ['family_name', 'family_names'],
         'mandatory': False,
         'multivalue': True,
-        'normalization': 'uppercase'
-        },
+        'normalization': 'name'
+    },
     'given_name': {
         'aliases': ['given_name', 'first_name'],
         'mandatory': False,
         'multivalue': True,
-        'normalization': 'uppercase'
-        },
+        'normalization': 'name'
+    },
     'email': {
         'aliases': ['email', 'contact_email_address', 'alternate_email_address'],
         'mandatory': False,
         'multivalue': True,
         'normalization': 'email'
-        },
+    },
     'phone': {
         'aliases': ['phone', 'contact_mobile_number', 'alternate_mobile_number',
                     'contact_landline_number', 'alternate_landline_number'],
         'mandatory': False,
         'multivalue': True,
         'normalization': 'phone'
-        },
+    },
     'dpid': {
         'aliases': ['dpid', 'contact_aus_dpid', 'alternate_aus_dpid'],
         'mandatory': False,
         'multivalue': True,
         'normalization': 'int'
-        }
+    }
 }
-
 
 # DATABANK_HEADERS is used to retrieve general details regarding the databank header given
 # It will provide the position of the header, the Senate matching equivalent and the number
@@ -205,7 +207,7 @@ def parse_headers(headers):
     for header in DATABANK_HEADERS:
         if DATABANK_HEADERS[header]['multi_max'] > 1:
             MATCH[header] = DATABANK_HEADERS[header]['match'] + ':' \
-                    + str(DATABANK_HEADERS[header]['multi_pos'] - 1)
+                            + str(DATABANK_HEADERS[header]['multi_pos'] - 1)
         else:
             MATCH[header] = DATABANK_HEADERS[header]['match']
 
@@ -213,8 +215,16 @@ def parse_headers(headers):
 
 
 def normalize(value, normalization_method):
-    """normailze performs operations of value parameter
+    """normalize performs operations of value parameter
     to transform it in a normalized senate matching format"""
+
+    # optional conversion of Asian wide strings to narrow. See Makefile and toNarrow.go
+    exe = os.path.dirname(os.path.realpath(__file__)) + "/tonarrow"
+    if os.path.isfile(exe) and os.access(exe, os.X_OK):
+        the_bytes = value.encode('utf-8')
+        result = subprocess.run(exe, stdout=subprocess.PIPE, input=the_bytes)
+        value = result.stdout.decode('utf-8').rstrip()
+
     if normalization_method == 'email':
         return value.lower()
     elif normalization_method == 'uppercase':
@@ -223,8 +233,11 @@ def normalize(value, normalization_method):
         convert_from = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
         convert_to = "01234567892223334445556667777888999922233344455566677778889999"
         return filter_and_translator(value, convert_from, convert_to)
-    elif normalization_method == 'int':
+    elif normalization_method == 'numeric':
         return re.sub("[^0-9]", "", value)
+    elif normalization_method == 'name':
+        nonLetters = regex.compile('\P{L}')
+        return nonLetters.sub('', value.lower())
     return str(value)
 
 
@@ -380,7 +393,8 @@ if __name__ == '__main__':
                         type=argparse.FileType('wt', encoding='UTF-8'),
                         default=sys.stdout,
                         required=False)
-    parser.add_argument('-d', '--delimiter', help='CSV Delimiter on the input file. Comma by default. To use tab, enter: $\'\\t\'',
+    parser.add_argument('-d', '--delimiter',
+                        help='CSV Delimiter on the input file. Comma by default. To use tab, enter: $\'\\t\'',
                         default=',',
                         required=False)
     args = parser.parse_args()
