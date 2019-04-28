@@ -7,7 +7,7 @@ import unittest
 from requests.auth import HTTPBasicAuth
 import databank2hitch
 import responses
-
+import xml.etree.ElementTree as ET
 
 def list_of_aliases():
     """list_of_aliases from DATABANK_SENATE_MATCHING_MAPPING"""
@@ -55,32 +55,32 @@ class TestDatabank2Hitch(unittest.TestCase):
                                                               '0123456789', ''),
                          '123456')
 
-    def test_normalization(self):
-        """test_normalization"""
-        emails = [('test+DR@datarepublic.COM', 'test+dr@datarepublic.com'),
-                  ('test+lower@datarepublic.com', 'test+lower@datarepublic.com'),
-                  ('TEST+UPPER@DATAREPUBLIC.COM', 'test+upper@datarepublic.com')]
-        for email in emails:
-            self.assertEqual(databank2hitch.normalize(email[0], 'email'), email[1])
+    def test_normalization_name(self):
+        """test_normalization_name"""
+        tree = ET.parse('fixtures/normalize_name.xml')
+        root = tree.getroot()
+        for elem in root:
+            input = elem[0].text
+            expected = elem[1].text
+            skip = elem[2].text
+            if input is None or expected is None or skip == "true":
+                continue
+            result = databank2hitch.normalize(input, 'name')
+            self.assertEqual(expected, result)
 
-        uppers = [('testup', 'TESTUP'), ('TESTUP2', 'TESTUP2'), ('test3UP', 'TEST3UP')]
-        for upper in uppers:
-            self.assertEqual(databank2hitch.normalize(upper[0], 'uppercase'), upper[1])
+    def test_normalization_other(self):
+        tree = ET.parse('fixtures/normalize_other.xml')
+        root = tree.getroot()
+        for elem in root:
+            input = elem[0].text
+            method = elem[1].text
+            expected = elem[2].text
+            skip = elem[3].text
+            if input is None or method is None or expected is None or skip is None or skip == "true":
+                print("skipping: input: {} method: {} expected: {}".format(input, method, expected))
+                continue
+            self.assertEqual(databank2hitch.normalize(input, method), expected, "input: {} method: {} expected: {}".format(input, method, expected))
 
-        phones = [('+61468733920', '61468733920'), ('0130545029', '0130545029'),
-                  ('+01AB0302CD', '0122030223')]
-        for phone in phones:
-            self.assertEqual(databank2hitch.normalize(phone[0], 'phone'), phone[1])
-
-        integers = [('01032134209', '01032134209'), ('0102ABC03KF', '010203'), ('ABCdef0GHi', '0')]
-        for integer in integers:
-            out = databank2hitch.normalize(integer[0], 'int')
-            self.assertEqual(out, integer[1])
-            self.assertEqual(is_int(out), True)
-
-        any_values = ['can_be_anything_012', 123, []]
-        for value in any_values:
-            self.assertEqual(databank2hitch.normalize(value, 'anything'), str(value))
 
     @responses.activate
     def test_retrieve_salts(self):
@@ -107,6 +107,8 @@ class TestDatabank2Hitch(unittest.TestCase):
                     "NormalizationMethod": "phone",
                     "HashSalt": "ff14d4eff61149c193d5b212f2c2d15b"
                 }
+            },
+            "FieldQualifiers": {
             }
         }
         responses.add(responses.GET, hostname + 'GlobalConfig',
