@@ -28,6 +28,34 @@
         <comment></comment>
     </row>
     <row>
+        <input> u ser @do main.com</input>
+        <method>email</method>
+        <expected>user@domain.com</expected>
+        <skip>false</skip>
+        <comment></comment>
+    </row>
+    <row>
+        <input> US ER @DOMA IN.COM</input>
+        <method>email</method>
+        <expected>user@domain.com</expected>
+        <skip>false</skip>
+        <comment></comment>
+    </row>
+    <row>
+        <input> Use r@Do main.C om</input>
+        <method>email</method>
+        <expected>user@domain.com</expected>
+        <skip>false</skip>
+        <comment></comment>
+    </row>
+    <row>
+        <input> Ｕｓｅｒ＠Ｄ ｏｍａｉｎ．Ｃｏｍ </input>
+        <method>email</method>
+        <expected>user@domain.com</expected>
+        <skip>false</skip>
+        <comment></comment>
+    </row>
+    <row>
         <input>123-45-6789</input>
         <method>numeric</method>
         <expected>123456789</expected>
