@@ -226,7 +226,8 @@ def normalize(value, normalization_method):
         value = result.stdout.decode('utf-8').rstrip()
 
     if normalization_method == 'email':
-        return value.lower()
+        whitespace = regex.compile('\p{Z}')
+        return whitespace.sub('', value.lower())
     elif normalization_method == 'uppercase':
         return value.upper()
     elif normalization_method == 'phone':
