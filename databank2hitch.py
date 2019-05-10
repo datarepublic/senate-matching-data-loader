@@ -3,8 +3,6 @@
 """databank2hitch.py converts a Databank format CSV into a hashed Hitch Senate Matching CSV
 and uploads it into the specified Contributor Node"""
 
-from __future__ import print_function
-
 import argparse
 import base64
 import csv
@@ -13,6 +11,7 @@ import os
 import re
 import subprocess
 import sys
+import logging
 from distutils.util import strtobool
 
 import regex
@@ -76,6 +75,24 @@ MANDATORY_ENVIRONMENT_FIELDS = ['HITCH_CONTRIBUTOR_NODE', 'HITCH_API_KEY']
 HITCH_BUF_FILENAME = '.databank2hitch_script.csv'
 
 
+# A logger that will print DEBUG and INFO to stdout, WARNING and ERROR to stderr
+class InfoFilter(logging.Filter):
+    def filter(self, rec):
+        return rec.levelno in (logging.DEBUG, logging.INFO)
+
+logger = logging.getLogger('__name__')
+logger.setLevel(logging.DEBUG)
+
+h1 = logging.StreamHandler(sys.stdout)
+h1.setLevel(logging.DEBUG)
+h1.addFilter(InfoFilter())
+h2 = logging.StreamHandler()
+h2.setLevel(logging.WARNING)
+
+logger.addHandler(h1)
+logger.addHandler(h2)
+
+
 def requests_ca_verify():
     """requests_ca_verify follows requests verify option.
     The value can be either a boolean
@@ -87,7 +104,7 @@ def requests_ca_verify():
     except ValueError:
         if os.path.exists(raw_verify):
             return raw_verify
-        eprint('Invalid value for REQUESTS_CA_VERIFY. Either set it to a path for '
+        logger.error('Invalid value for REQUESTS_CA_VERIFY. Either set it to a path for '
                'a CA certificate key or to a boolean')
         exit(3)
 
@@ -106,30 +123,24 @@ def retrieve_salts(hostname, static_auth, ca_verify=True):
                 if name in DATABANK_SENATE_MATCHING_MAPPING:
                     DATABANK_SENATE_MATCHING_MAPPING[name]['salt'] = payload[type_def][field][
                         'HashSalt']
-
+        return True
     except requests.exceptions.SSLError:
-        eprint("Error: Invalid certificate. Update your environment variables "
+        logger.error("Error: Invalid certificate. Update your environment variables "
                "by either using your system's trusted CAs with "
                "REQUESTS_CA_BUNDLE or set REQUESTS_CA_VERIFY to false")
-        exit(2)
+        return False
     except requests.exceptions.ConnectionError:
-        eprint('Error: contributor node is unreachable')
-        exit(2)
+        logger.error('Error: contributor node is unreachable')
+        return False
     except requests.HTTPError as ex:
-        print(ex)
-        eprint('Error {}: {}'.format(salt_req.status_code, salt_req.text.rstrip()))
-        exit(2)
+        logger.error('Error {}: {}'.format(salt_req.status_code, salt_req.text.rstrip()))
+        return False
     except ValueError:
-        eprint('Error: error decoding the response')
-        exit(2)
+        logger.error('Error: error decoding the response')
+        return False
     except KeyError as ex:
-        eprint('Error: invalid payload received. KeyError: {}'.format(ex))
-        exit(2)
-
-
-def eprint(*args, **kwargs):
-    """print message to stderr"""
-    print(*args, file=sys.stderr, **kwargs)
+        logger.error('Error: invalid payload received. KeyError: {}'.format(ex))
+        return False
 
 
 def read_csv(input_type, delimiter):
@@ -173,7 +184,7 @@ def parse_headers(headers):
     for header in headers:
         matching_field = find_matching_field(header)
         if matching_field is None:
-            eprint('Warning: [{}] header is not expected and will be ignored'.format(header))
+            logger.warning('Warning: [{}] header is not expected and will be ignored'.format(header))
             continue
 
         # Curated list of mandatory fields
@@ -193,7 +204,7 @@ def parse_headers(headers):
 
     # Force quit for missing mandatory fields
     if mandatory_fields:
-        eprint('Missing mandatory headers: {}'.format(', '.join(mandatory_fields)))
+        logger.error('Missing mandatory headers: {}'.format(', '.join(mandatory_fields)))
         exit(1)
 
     # Count of max multi value field per header
@@ -299,7 +310,7 @@ def validate_env():
     to Contributor node will be possible after the data has been processed"""
     for env_field in MANDATORY_ENVIRONMENT_FIELDS:
         if env_field not in os.environ:
-            eprint('Error: {} mandatory environment variable is not set.'.format(env_field))
+            logger.error('Error: {} mandatory environment variable is not set.'.format(env_field))
             exit(3)
 
 
@@ -311,9 +322,10 @@ def clean_buf_env():
         pass
 
 
-def hitch_contributor_node_url():
+def hitch_contributor_node_url(hcn=None):
     """hitch_contributor_node_url performs a scheme and trailing slash clean up"""
-    hcn = os.environ['HITCH_CONTRIBUTOR_NODE']
+    if not hcn:
+        hcn = os.environ['HITCH_CONTRIBUTOR_NODE']
     if hcn.endswith('/'):
         hcn = hcn[:-1]
     if hcn.startswith('https://'):
@@ -325,6 +337,8 @@ def generate_hitch_csv(iterator):
     """generate_hitch_csv reads from iterator and writes to temporary buffer"""
     # Use of a tempoary file to avoid storing the entire file in memory
     parsed_headers = False
+    clean_buf_env()
+
     with open(HITCH_BUF_FILENAME, 'wt', encoding='UTF8') as hitch_buf_fd:
         for raw_line in iterator:
             # One time header parse
@@ -338,31 +352,36 @@ def generate_hitch_csv(iterator):
                 writer.writerow(parsed_line)
 
 
-def contributor_loaded_tokens(hostname, parameters, static_auth, ca_verify=True):
+def contributor_loaded_tokens(hostname, dbuuid, static_auth, ca_verify=True):
     """generate_tokens_csv makes a CSV file with personid,tokens"""
+
+    params = {'DBUUID': dbuuid}
     try:
         token_req = requests.get(hostname + 'GetPersonTokens',
-                                 params=parameters,
+                                 params=params,
                                  auth=static_auth,
                                  headers={'accept': 'application/json'},
                                  verify=ca_verify)
         token_req.raise_for_status()
-        return token_req.json()
+        token_json = token_req.json()
+        if not token_json:
+            logger.error('Error: no loaded tokens found after load')
+        return token_json, True
     except requests.exceptions.SSLError:
-        eprint("Error: Invalid certificate. Update your environment variables "
+        logger.error("Error: Invalid certificate. Update your environment variables "
                "by either using your system's trusted CAs with "
                "REQUESTS_CA_BUNDLE or set REQUESTS_CA_VERIFY to false")
-        exit(2)
+        return [], False
     except requests.exceptions.ConnectionError:
-        eprint('Error: contributor node is unreachable')
-        exit(2)
+        logger.error('Error: contributor node is unreachable')
+        return [], False
     except requests.HTTPError as ex:
-        print(ex)
-        eprint('Error {}: {}'.format(load_req.status_code, load_req.text.rstrip()))
-        exit(2)
+        logger.error(ex)
+        logger.error('Error {}: {}'.format(token_req.status_code, token_req.text.rstrip()))
+        return [], False
     except ValueError:
-        eprint('Error: error decoding the response')
-        exit(2)
+        logger.error('Error: error decoding the response')
+        return [], False
 
 
 def write_output(output, tokens):
@@ -378,6 +397,32 @@ def write_output(output, tokens):
     csvwriter.writerow(['personid', 'token'])
     for row in tokens:
         csvwriter.writerow([row['PersonId'], row['Token']])
+
+def load_hashed_records(host, dbuuid, auth, ca_verify=True):
+    """load_hashed_records() loads the data and return the token/id mapping"""
+
+    params = {'DBUUID': dbuuid}
+    try:
+        load_req = requests.post(host + 'LoadHashedRecords', params=params,
+                                 auth=auth,
+                                 files={'file': (HITCH_BUF_FILENAME, open(HITCH_BUF_FILENAME, 'rb'),
+                                                 'text/csv')},
+                                 verify=ca_verify)
+        load_req.raise_for_status()
+        return True
+    except requests.exceptions.SSLError:
+        logger.error("Error: Invalid certificate. Update your environment variables "
+               "by either using your system's trusted CAs with "
+               "REQUESTS_CA_BUNDLE or set REQUESTS_CA_VERIFY to false")
+        return False
+    except requests.exceptions.ConnectionError:
+        logger.error('Error: contributor node is unreachable')
+        return False
+    except requests.HTTPError:
+        logger.error('Error {}: {}'.format(load_req.status_code, load_req.text.rstrip()))
+        return False
+    finally:
+        clean_buf_env()
 
 
 if __name__ == '__main__':
@@ -401,41 +446,20 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     validate_env()
-    clean_buf_env()
 
     host = hitch_contributor_node_url()
-    params = {'DBUUID': args.uuid}
     auth = HTTPBasicAuth('api', os.environ['HITCH_API_KEY'])
     req_ca_verify = requests_ca_verify()
     if isinstance(req_ca_verify, bool) and not req_ca_verify:
         requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-    retrieve_salts(host, auth, req_ca_verify)
+    if not retrieve_salts(host, auth, req_ca_verify):
+        exit(2)
     generate_hitch_csv(read_csv(args.input, args.delimiter))
 
-    try:
-        load_req = requests.post(host + 'LoadHashedRecords', params=params,
-                                 auth=auth,
-                                 files={'file': (HITCH_BUF_FILENAME, open(HITCH_BUF_FILENAME, 'rb'),
-                                                 'text/csv')},
-                                 verify=req_ca_verify)
-        load_req.raise_for_status()
-    except requests.exceptions.SSLError:
-        eprint("Error: Invalid certificate. Update your environment variables "
-               "by either using your system's trusted CAs with "
-               "REQUESTS_CA_BUNDLE or set REQUESTS_CA_VERIFY to false")
+    if not load_hashed_records(host, args.uuid, auth, req_ca_verify):
         exit(2)
-    except requests.exceptions.ConnectionError:
-        eprint('Error: contributor node is unreachable')
+    token_tuples, status = contributor_loaded_tokens(host, args.uuid, auth, req_ca_verify)
+    if not (status and token_tuples):
         exit(2)
-    except requests.HTTPError:
-        eprint('Error {}: {}'.format(load_req.status_code, load_req.text.rstrip()))
-        exit(2)
-    else:
-        token_tuples = contributor_loaded_tokens(host, params, auth, req_ca_verify)
-        if not token_tuples:
-            eprint('Error: no loaded tokens found after load')
-            exit(2)
-        write_output(args.output, token_tuples)
-    finally:
-        clean_buf_env()
+    write_output(args.output, token_tuples)
