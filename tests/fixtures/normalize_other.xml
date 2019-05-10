@@ -55,6 +55,7 @@
         <skip>false</skip>
         <comment></comment>
     </row>
+
     <row>
         <input>123-45-6789</input>
         <method>numeric</method>
@@ -69,6 +70,7 @@
         <skip>false</skip>
         <comment></comment>
     </row>
+
     <row>
         <input>ABC12345</input>
         <method>uppercase</method>
@@ -90,6 +92,49 @@
         <skip>false</skip>
         <comment></comment>
     </row>
+    <row>
+        <input> ABC12345 </input>
+        <method>uppercase</method>
+        <expected>ABC12345</expected>
+        <skip>false</skip>
+        <comment></comment>
+    </row>
+    <row>
+        <input> abc12345 </input>
+        <method>uppercase</method>
+        <expected>ABC12345</expected>
+        <skip>false</skip>
+        <comment></comment>
+    </row>
+    <row>
+        <input> Abc12345 </input>
+        <method>uppercase</method>
+        <expected>ABC12345</expected>
+        <skip>false</skip>
+        <comment></comment>
+    </row>
+    <row>
+        <input> ABC 12345 </input>
+        <method>uppercase</method>
+        <expected>ABC 12345</expected>
+        <skip>false</skip>
+        <comment></comment>
+    </row>
+    <row>
+        <input> abc 12345 </input>
+        <method>uppercase</method>
+        <expected>ABC 12345</expected>
+        <skip>false</skip>
+        <comment></comment>
+    </row>
+    <row>
+        <input> Abc1 2345 </input>
+        <method>uppercase</method>
+        <expected>ABC1 2345</expected>
+        <skip>false</skip>
+        <comment></comment>
+    </row>
+
     <row>
         <input>+1 (818) 123-4567</input>
         <method>phone</method>
