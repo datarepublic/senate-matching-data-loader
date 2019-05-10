@@ -229,7 +229,7 @@ def normalize(value, normalization_method):
         whitespace = regex.compile('\p{Z}')
         return whitespace.sub('', value.lower())
     elif normalization_method == 'uppercase':
-        return value.upper()
+        return value.upper().strip()
     elif normalization_method == 'phone':
         convert_from = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
         convert_to = "01234567892223334445556667777888999922233344455566677778889999"
