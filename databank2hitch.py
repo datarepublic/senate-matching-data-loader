@@ -37,7 +37,7 @@ DATABANK_SENATE_MATCHING_MAPPING = {
         'aliases': ['given_name', 'first_name'],
         'mandatory': False,
         'multivalue': True,
-        'normalization': 'name'
+        'normalization': 'uppercase'
     },
     'email': {
         'aliases': ['email', 'contact_email_address', 'alternate_email_address'],
@@ -57,6 +57,18 @@ DATABANK_SENATE_MATCHING_MAPPING = {
         'mandatory': False,
         'multivalue': True,
         'normalization': 'int'
+    },
+    'frequent_flyer_number': {
+        'aliases': ['frequent_flyer_number'],
+        'mandatory': False,
+        'multivalue': False,
+        'normalization': 'uppercase'
+    },
+    'nationalid': {
+        'aliases': ['nationalid'],
+        'mandatory': False,
+        'multivalue': False,
+        'normalization': 'uppercase'
     }
 }
 

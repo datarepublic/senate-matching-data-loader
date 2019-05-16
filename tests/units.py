@@ -57,7 +57,8 @@ class TestDatabank2Hitch(unittest.TestCase):
 
     def test_normalization_name(self):
         """test_normalization_name"""
-        tree = ET.parse('fixtures/normalize_name.xml')
+        localpath = os.path.dirname(os.path.realpath(__file__))
+        tree = ET.parse('{}/fixtures/normalize_name.xml'.format(localpath))
         root = tree.getroot()
         for elem in root:
             input = elem[0].text
@@ -69,7 +70,8 @@ class TestDatabank2Hitch(unittest.TestCase):
             self.assertEqual(expected, result)
 
     def test_normalization_other(self):
-        tree = ET.parse('fixtures/normalize_other.xml')
+        localpath = os.path.dirname(os.path.realpath(__file__))
+        tree = ET.parse('{}/fixtures/normalize_other.xml'.format(localpath))
         root = tree.getroot()
         for elem in root:
             input = elem[0].text
@@ -139,13 +141,17 @@ class TestDatabank2Hitch(unittest.TestCase):
     def test_parse_headers(self):
         """test_parse_headers"""
         databank_headers = ['natural_key', 'phone', 'email', 'contact_email_address',
-                            'fake_phone', 'contact_mobile_number']
+                            'fake_phone', 'contact_mobile_number', 'nationalid', 'frequent_flyer_number']
         self.assertEqual(databank2hitch.parse_headers(databank_headers),
-                         ['personid', 'phone:0', 'email:0', 'email:1', 'phone:1'])
+                         ['personid', 'phone:0', 'email:0', 'email:1', 'phone:1', 'nationalid', 'frequent_flyer_number'])
         self.assertEqual(databank2hitch.MATCH, {'natural_key': 'personid', 'phone': 'phone:0',
                                                 'email': 'email:0',
                                                 'contact_email_address': 'email:1',
-                                                'contact_mobile_number': 'phone:1'})
+                                                'contact_mobile_number': 'phone:1',
+                                                 'nationalid': 'nationalid',
+                                                 'frequent_flyer_number': 'frequent_flyer_number'
+                                                }
+                                            )
 
 
 if __name__ == '__main__':
