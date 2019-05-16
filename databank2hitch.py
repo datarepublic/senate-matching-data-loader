@@ -92,6 +92,11 @@ class InfoFilter(logging.Filter):
     def filter(self, rec):
         return rec.levelno in (logging.DEBUG, logging.INFO)
 
+class InvalidFileHeadersError(Exception):
+   """Raised when the file contains invalid headers"""
+   pass
+
+
 logger = logging.getLogger('__name__')
 logger.setLevel(logging.DEBUG)
 
@@ -217,7 +222,7 @@ def parse_headers(headers):
     # Force quit for missing mandatory fields
     if mandatory_fields:
         logger.error('Missing mandatory headers: {}'.format(', '.join(mandatory_fields)))
-        exit(1)
+        raise InvalidFileHeadersError
 
     # Count of max multi value field per header
     for header in DATABANK_HEADERS:
@@ -355,13 +360,17 @@ def generate_hitch_csv(iterator):
         for raw_line in iterator:
             # One time header parse
             if not parsed_headers:
-                writer = csv.DictWriter(hitch_buf_fd, fieldnames=parse_headers(raw_line.keys()))
-                writer.writeheader()
+                try:
+                    writer = csv.DictWriter(hitch_buf_fd, fieldnames=parse_headers(raw_line.keys()))
+                    writer.writeheader()
+                except InvalidFileHeadersError:
+                    return False
                 parsed_headers = True
 
             parsed_line = parse_line(raw_line)
             if parsed_line:
                 writer.writerow(parsed_line)
+    return True
 
 
 def contributor_loaded_tokens(hostname, dbuuid, static_auth, ca_verify=True):
@@ -467,8 +476,8 @@ if __name__ == '__main__':
 
     if not retrieve_salts(host, auth, req_ca_verify):
         exit(2)
-    generate_hitch_csv(read_csv(args.input, args.delimiter))
-
+    if not generate_hitch_csv(read_csv(args.input, args.delimiter)):
+        exit(1)
     if not load_hashed_records(host, args.uuid, auth, req_ca_verify):
         exit(2)
     token_tuples, status = contributor_loaded_tokens(host, args.uuid, auth, req_ca_verify)
