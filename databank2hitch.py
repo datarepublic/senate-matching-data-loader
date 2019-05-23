@@ -19,6 +19,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
+# Fields without salt are NOT going to be encrypted.
 DATABANK_SENATE_MATCHING_MAPPING = {
     'personid': {
         'aliases': ['personid', 'natural_key'],
@@ -69,6 +70,13 @@ DATABANK_SENATE_MATCHING_MAPPING = {
         'mandatory': False,
         'multivalue': False,
         'normalization': 'uppercase'
+    },
+    'operation': {
+        'aliases': ['operation'],
+        'mandatory': False,
+        'multivalue': False,
+        'normalization': 'uppercase',
+        'salt': False
     }
 }
 
@@ -137,7 +145,8 @@ def retrieve_salts(hostname, static_auth, ca_verify=True):
             type_def, name_def = field_def
             for field in payload[type_def]:
                 name = payload[type_def][field][name_def]
-                if name in DATABANK_SENATE_MATCHING_MAPPING:
+                if name in DATABANK_SENATE_MATCHING_MAPPING and \
+                        DATABANK_SENATE_MATCHING_MAPPING[name].get('salt', True):
                     DATABANK_SENATE_MATCHING_MAPPING[name]['salt'] = payload[type_def][field][
                         'HashSalt']
         return True
@@ -317,6 +326,9 @@ def parse_line(parsing_line):
 
 def senate_hash(base_field, value):
     """senate_hash is hashing given field as the contributor node"""
+    # Do not hash fields that do not have salt. e.g. operation type
+    if not DATABANK_SENATE_MATCHING_MAPPING[base_field].get('salt', False):
+        return base_field
     salt = DATABANK_SENATE_MATCHING_MAPPING[base_field]['salt']
     hsh = hashlib.sha512((value + salt).encode('utf-8'))
     return base64.b64encode(hsh.digest()).decode('utf-8')
