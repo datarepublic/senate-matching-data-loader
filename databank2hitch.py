@@ -437,7 +437,11 @@ def load_hashed_records(host, dbuuid, auth, ca_verify=True):
     except requests.exceptions.ConnectionError:
         logger.error('Error: contributor node is unreachable')
     except requests.HTTPError:
-        logger.error('Error {}: {}'.format(load_req.status_code, load_req.text.rstrip()))
+        try:
+            format_error = load_req.json()
+            logger.error('Error {}: {} ({})'.format(load_req.status_code, format_error['error'], format_error['code']))
+        except:
+            logger.error('Error {}: {}'.format(load_req.status_code, load_req.text.rstrip()))
     finally:
         clean_buf_env()
         if 'load_req' in locals():
