@@ -206,6 +206,12 @@ def parse_headers(headers):
     # Ordered list of valid headers
     valid_headers = []
 
+    # Hitch does not allow multiple columns with the same name
+    # TODO(HIT-645): DictReader does not keep duplicates
+    if len(headers) > len(set(headers)):
+        logger.error("The file you're trying to upload contains duplicated headers")
+        raise InvalidFileHeadersError
+
     # First loop looking at match equivalent, mandatory fields and multi value position
     for header in headers:
         matching_field = find_matching_field(header)
