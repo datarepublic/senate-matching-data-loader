@@ -430,20 +430,19 @@ def load_hashed_records(host, dbuuid, auth, ca_verify=True):
                                                  'text/csv')},
                                  verify=ca_verify)
         load_req.raise_for_status()
-        return True
     except requests.exceptions.SSLError:
         logger.error("Error: Invalid certificate. Update your environment variables "
                "by either using your system's trusted CAs with "
                "REQUESTS_CA_BUNDLE or set REQUESTS_CA_VERIFY to false")
-        return False
     except requests.exceptions.ConnectionError:
         logger.error('Error: contributor node is unreachable')
-        return False
     except requests.HTTPError:
         logger.error('Error {}: {}'.format(load_req.status_code, load_req.text.rstrip()))
-        return False
     finally:
         clean_buf_env()
+        if 'load_req' in locals():
+            return load_req.status_code
+        return 500
 
 
 if __name__ == '__main__':
@@ -478,7 +477,13 @@ if __name__ == '__main__':
         exit(2)
     if not generate_hitch_csv(read_csv(args.input, args.delimiter)):
         exit(1)
-    if not load_hashed_records(host, args.uuid, auth, req_ca_verify):
+    status = load_hashed_records(host, args.uuid, auth, req_ca_verify)
+    if status > 399:
+        if status < 500:
+            exit(1)
+        else:
+            exit(2)
+
         exit(2)
     token_tuples, status = contributor_loaded_tokens(host, args.uuid, auth, req_ca_verify)
     if not (status and token_tuples):
