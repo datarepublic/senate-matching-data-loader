@@ -13,6 +13,7 @@ import subprocess
 import sys
 import logging
 from distutils.util import strtobool
+from collections import OrderedDict
 
 import regex
 import requests
@@ -104,6 +105,14 @@ class InvalidFileHeadersError(Exception):
    """Raised when the file contains invalid headers"""
    pass
 
+class InvalidLineError(Exception):
+   """Raised when the file contains an invalid line"""
+   pass
+
+class DuplicatedColumnError(Exception):
+   """Raised when the file contains multiple columns with the same name"""
+   pass
+
 
 logger = logging.getLogger('__name__')
 logger.setLevel(logging.DEBUG)
@@ -169,13 +178,39 @@ def retrieve_salts(hostname, static_auth, ca_verify=True):
         return False
 
 
-def read_csv(input_type, delimiter):
+def read_csv(input_type, delimiter, exit_on_failure=False):
     """read_csv_stdin processes CSV from stdin line by line"""
-    for row in csv.DictReader(iter(input_type.readline, ''),
-                              skipinitialspace=True, delimiter=delimiter, quoting=csv.QUOTE_NONE):
-        if row:
-            yield row
+    csvReader = csv.reader(iter(input_type.readline, ''), skipinitialspace=True, delimiter=delimiter, quoting=csv.QUOTE_NONE)
+    try:
+        headers = next(csvReader)
+    except StopIteration:
+        logger.debug("The file you're trying to upload is empty")
+        if exit_on_failure:
+            exit(1)
+        return
 
+    if len(headers) != len(set(headers)):
+        logger.error("The file you're trying to upload contains duplicated headers")
+        if exit_on_failure:
+            exit(1)
+        raise DuplicatedColumnError
+
+    for row in csvReader:
+        odict = OrderedDict()
+        for idx, field in enumerate(row):
+            try:
+                odict[headers[idx]] = field
+            except IndexError:
+                logger.error("The file you're trying to upload has more fields compared to the header row")
+                if exit_on_failure:
+                    exit(1)
+                raise InvalidFileHeadersError
+        if len(odict) < len(headers):
+            logger.error("The file you're trying to upload has less fields compared to the header row")
+            if exit_on_failure:
+                exit(1)
+            raise InvalidLineError
+        yield odict
 
 def find_matching_field(header):
     """find_matching_field returns the exact matching field for an alias"""
@@ -205,12 +240,6 @@ def parse_headers(headers):
     multivalue_matching_fields = {}
     # Ordered list of valid headers
     valid_headers = []
-
-    # Hitch does not allow multiple columns with the same name
-    # TODO(HIT-645): DictReader does not keep duplicates
-    if len(headers) > len(set(headers)):
-        logger.error("The file you're trying to upload contains duplicated headers")
-        raise InvalidFileHeadersError
 
     # First loop looking at match equivalent, mandatory fields and multi value position
     for header in headers:
@@ -267,6 +296,9 @@ def normalize(value, normalization_method):
         the_bytes = value.encode('utf-8')
         result = subprocess.run(exe, stdout=subprocess.PIPE, input=the_bytes)
         value = result.stdout.decode('utf-8').rstrip()
+
+    if value is None:
+        return ''
 
     if normalization_method == 'email':
         whitespace = regex.compile('\p{Z}')
@@ -382,10 +414,15 @@ def generate_hitch_csv(iterator):
                     writer = csv.DictWriter(hitch_buf_fd, fieldnames=parse_headers(raw_line.keys()))
                     writer.writeheader()
                 except InvalidFileHeadersError:
+                    clean_buf_env()
                     return False
                 parsed_headers = True
 
-            parsed_line = parse_line(raw_line)
+            try:
+                parsed_line = parse_line(raw_line)
+            except InvalidLineError:
+                clean_buf_env()
+                return False
             if parsed_line:
                 writer.writerow(parsed_line)
     return True
@@ -497,7 +534,7 @@ if __name__ == '__main__':
 
     if not retrieve_salts(host, auth, req_ca_verify):
         exit(2)
-    if not generate_hitch_csv(read_csv(args.input, args.delimiter)):
+    if not generate_hitch_csv(read_csv(args.input, args.delimiter, exit_on_failure=True)):
         exit(1)
     status = load_hashed_records(host, args.uuid, auth, req_ca_verify)
     if status > 399:
