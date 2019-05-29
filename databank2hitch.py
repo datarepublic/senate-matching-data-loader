@@ -94,6 +94,7 @@ MATCH = {}
 
 MANDATORY_ENVIRONMENT_FIELDS = ['HITCH_CONTRIBUTOR_NODE', 'HITCH_API_KEY']
 HITCH_BUF_FILENAME = '.databank2hitch_script.csv'
+UPLOAD_FILENAME = HITCH_BUF_FILENAME
 
 
 # A logger that will print DEBUG and INFO to stdout, WARNING and ERROR to stderr
@@ -177,6 +178,24 @@ def retrieve_salts(hostname, static_auth, ca_verify=True):
         logger.error('Error: invalid payload received. KeyError: {}'.format(ex))
         return False
 
+
+def override_temp_buffer_name(some_input):
+    """override_temp_buffer_name change the library temporary buffer
+       Does nothing for STIN
+       Change to filename if it's given a file descriptor
+       Or set to string elsewise"""
+    global UPLOAD_FILENAME
+    if some_input != sys.stdin:
+        if 'name' in dir(some_input):
+            UPLOAD_FILENAME = some_input.name.split('/')[-1]
+        else:
+            UPLOAD_FILENAME = str(some_input)
+
+def recover_temp_buffer_name():
+    """simply recover the buffer name after override"""
+    global HITCH_BUF_FILENAME
+    global UPLOAD_FILENAME
+    UPLOAD_FILENAME = HITCH_BUF_FILENAME
 
 def read_csv(input_type, delimiter, exit_on_failure=False):
     """read_csv_stdin processes CSV from stdin line by line"""
@@ -481,7 +500,7 @@ def load_hashed_records(host, dbuuid, auth, ca_verify=True):
     try:
         load_req = requests.post(host + 'LoadHashedRecords', params=params,
                                  auth=auth,
-                                 files={'file': (HITCH_BUF_FILENAME, open(HITCH_BUF_FILENAME, 'rb'),
+                                 files={'file': (UPLOAD_FILENAME, open(HITCH_BUF_FILENAME, 'rb'),
                                                  'text/csv')},
                                  verify=ca_verify)
         load_req.raise_for_status()
@@ -532,6 +551,7 @@ if __name__ == '__main__':
     if isinstance(req_ca_verify, bool) and not req_ca_verify:
         requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+    override_temp_buffer_name(args.input)
     if not retrieve_salts(host, auth, req_ca_verify):
         exit(2)
     if not generate_hitch_csv(read_csv(args.input, args.delimiter, exit_on_failure=True)):
