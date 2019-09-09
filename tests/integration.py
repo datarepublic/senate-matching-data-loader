@@ -5,6 +5,12 @@
 import os
 import sys
 import subprocess
+import csv
+import io
+
+import requests
+from requests.auth import HTTPBasicAuth
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 ENVS = [('HITCH_API_KEY', 'mysecret'), ('HITCH_CONTRIBUTOR_NODE', 'https://localhost:8952'),
         ('REQUESTS_CA_VERIFY', '0')]
@@ -17,6 +23,23 @@ def set_env():
         if env_value[0] not in os.environ:
             os.environ[env_value[0]] = env_value[1]
 
+def verify_accessible_contributor_node_api():
+    """verify_accessible_contributor_node_api check if remote host is accessible"""
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+    params = {'DBUUID': UUID}
+    auth = HTTPBasicAuth('api', os.environ['HITCH_API_KEY'])
+
+    try:
+        r = requests.get(os.environ['HITCH_CONTRIBUTOR_NODE'] + '/api/Contributor/v1/GlobalConfig',
+                params=params,
+                auth=auth,
+                headers={'accept': 'application/json'},
+                verify=False,
+                timeout=2)
+        r.raise_for_status()
+    except Exception as ex:
+        print('Node is not accessible:', str(ex))
+        exit(1)
 
 def has_warning(header, stderr):
     warn_line = 'Warning: [{}] header is not expected and will be ignored'.format(header)
@@ -34,9 +57,10 @@ def test_00(sub_result):
             exit(1)
 
     # Check for record with personid and token
-    for record in ['1,11758510445741534', '2,42976496234352882']:
-        if record not in str(sub_result.stdout):
-            print('Test_00: Fail: {} not in output result'.format(record))
+    output = io.StringIO(sub_result.stdout.decode('utf-8'))
+    for row in csv.DictReader(output):
+        if row['personid'] not in ['1', '2']:
+            print('Test_00: Fail: {} not in output result'.format(natural_key))
             exit(1)
     print('Test 00: Ok')
 
@@ -48,6 +72,8 @@ def fixture_number(fixture_name):
 
 if __name__ == '__main__':
     set_env()
+    verify_accessible_contributor_node_api()
+
     script_path_base = os.path.dirname(sys.argv[0])
     fixture_path = script_path_base + '/fixtures/'
     fixtures = [os.path.join(fixture_path, f) for f in os.listdir(fixture_path)

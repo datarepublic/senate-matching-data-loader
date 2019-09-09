@@ -70,6 +70,8 @@ class TestDatabank2Hitch(unittest.TestCase):
             self.assertEqual(expected, result)
 
     def test_normalization_other(self):
+        self.assertEqual(os.path.exists('./toNarrow'), True, 'missing toNarrow binary [go build toNarrow.go]')
+
         localpath = os.path.dirname(os.path.realpath(__file__))
         tree = ET.parse('{}/fixtures/normalize_other.xml'.format(localpath))
         root = tree.getroot()

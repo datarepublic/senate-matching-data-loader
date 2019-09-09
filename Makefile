@@ -1,7 +1,7 @@
 init:
 	pipenv install
 
-test:
+test: go
 	python -m unittest tests/units.py
 	python ./tests/integration.py
 
