@@ -497,12 +497,12 @@ def load_hashed_records(host, dbuuid, auth, ca_verify=True):
     """load_hashed_records() loads the data and return the token/id mapping"""
 
     params = {'DBUUID': dbuuid}
+    load_req = requests.post(host + 'LoadHashedRecords', params=params,
+                                auth=auth,
+                                files={'file': (UPLOAD_FILENAME, open(HITCH_BUF_FILENAME, 'rb'),
+                                                'text/csv')},
+                                verify=ca_verify)
     try:
-        load_req = requests.post(host + 'LoadHashedRecords', params=params,
-                                 auth=auth,
-                                 files={'file': (UPLOAD_FILENAME, open(HITCH_BUF_FILENAME, 'rb'),
-                                                 'text/csv')},
-                                 verify=ca_verify)
         load_req.raise_for_status()
     except requests.exceptions.SSLError:
         logger.error("Error: Invalid certificate. Update your environment variables "
