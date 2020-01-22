@@ -73,7 +73,7 @@ DATABANK_SENATE_MATCHING_MAPPING = {
         'normalization': 'uppercase'
     },
     'operation': {
-        'aliases': ['operation'],
+        'aliases': ['operation', 'opr_typr'],
         'mandatory': False,
         'multivalue': False,
         'normalization': 'uppercase',
@@ -518,9 +518,8 @@ def load_hashed_records(host, dbuuid, auth, ca_verify=True):
             logger.error('Error {}: {}'.format(load_req.status_code, load_req.text.rstrip()))
     finally:
         clean_buf_env()
-        if 'load_req' in locals():
-            return load_req.status_code
-        return 500
+        logger.info(load_req.text)
+        return load_req.status_code
 
 
 if __name__ == '__main__':
