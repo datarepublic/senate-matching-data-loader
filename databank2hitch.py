@@ -545,9 +545,10 @@ if __name__ == '__main__':
                         help='CSV Delimiter on the input file. Comma by default. To use tab, enter: $\'\\t\'',
                         default=',',
                         required=False)
-    parser.add_argument('-s', '--hashedsource',
-                        help='Load the file whose records have been hashed when second hashing is not required',
-                        default='',
+    parser.add_argument('--hashed',
+                        type=strtobool
+                        help='Specify True if the file has hashed to skip second hashing',
+                        default=False,
                         required=False)
     args = parser.parse_args()
 
@@ -560,11 +561,15 @@ if __name__ == '__main__':
         requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
     override_temp_buffer_name(args.input)
-    if not retrieve_salts(host, auth, req_ca_verify):
-        exit(2)
-    if not generate_hitch_csv(read_csv(args.input, args.delimiter, exit_on_failure=True)):
-        exit(1)
-    status = load_hashed_records(host, args.uuid, auth, req_ca_verify, args.hashedsource)
+    if args.hashed:
+        status = load_hashed_records(host, args.uuid, auth, req_ca_verify, args.input)
+    else:
+        if not retrieve_salts(host, auth, req_ca_verify):
+            exit(2)
+        if not generate_hitch_csv(read_csv(args.input, args.delimiter, exit_on_failure=True)):
+            exit(1)
+        status = load_hashed_records(host, args.uuid, auth, req_ca_verify)
+    
     if status > 399:
         if status < 500:
             exit(1)
