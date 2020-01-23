@@ -498,12 +498,12 @@ def load_hashed_records(host, dbuuid, auth, ca_verify=True, hashedFile=''):
 
     params = {'DBUUID': dbuuid}
     src = HITCH_BUF_FILENAME if hashedFile == '' else hashedFile
-    load_req = requests.post(host + 'LoadHashedRecords', params=params,
-                                auth=auth,
-                                files={'file': (UPLOAD_FILENAME, open(src, 'rb'),
-                                                'text/csv')},
-                                verify=ca_verify)
     try:
+        load_req = requests.post(host + 'LoadHashedRecords', params=params,
+                                 auth=auth,
+                                 files={'file': (UPLOAD_FILENAME, open(src, 'rb'),
+                                                 'text/csv')},
+                                 verify=ca_verify)
         load_req.raise_for_status()
     except requests.exceptions.SSLError:
         logger.error("Error: Invalid certificate. Update your environment variables "
@@ -517,10 +517,14 @@ def load_hashed_records(host, dbuuid, auth, ca_verify=True, hashedFile=''):
             logger.error('Error {}: {} ({})'.format(load_req.status_code, format_error['error'], format_error['code']))
         except:
             logger.error('Error {}: {}'.format(load_req.status_code, load_req.text.rstrip()))
+    except OverflowError as e:
+        statinfo = os.stat(src)
+        logger.error('Error: File size {} GB is too large', statinfo.st_size / ( 1024 * 1024 * 1024 )) # bytes to GB
     finally:
         clean_buf_env()
-        logger.info(load_req.text)
-        return load_req.status_code
+        if 'load_req' in locals():
+            return load_req.status_code
+        return 500
 
 
 if __name__ == '__main__':
