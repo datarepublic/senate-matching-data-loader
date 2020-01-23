@@ -493,16 +493,17 @@ def write_output(output, tokens):
     for row in tokens:
         csvwriter.writerow([row['PersonId'], row['Token']])
 
-def load_hashed_records(host, dbuuid, auth, ca_verify=True):
+def load_hashed_records(host, dbuuid, auth, ca_verify=True, hashedFile=''):
     """load_hashed_records() loads the data and return the token/id mapping"""
 
     params = {'DBUUID': dbuuid}
+    src = HITCH_BUF_FILENAME if hashedFile == '' else hashedFile
+    load_req = requests.post(host + 'LoadHashedRecords', params=params,
+                                auth=auth,
+                                files={'file': (UPLOAD_FILENAME, open(src, 'rb'),
+                                                'text/csv')},
+                                verify=ca_verify)
     try:
-        load_req = requests.post(host + 'LoadHashedRecords', params=params,
-                                 auth=auth,
-                                 files={'file': (UPLOAD_FILENAME, open(HITCH_BUF_FILENAME, 'rb'),
-                                                 'text/csv')},
-                                 verify=ca_verify)
         load_req.raise_for_status()
     except requests.exceptions.SSLError:
         logger.error("Error: Invalid certificate. Update your environment variables "
@@ -518,9 +519,8 @@ def load_hashed_records(host, dbuuid, auth, ca_verify=True):
             logger.error('Error {}: {}'.format(load_req.status_code, load_req.text.rstrip()))
     finally:
         clean_buf_env()
-        if 'load_req' in locals():
-            return load_req.status_code
-        return 500
+        logger.info(load_req.text)
+        return load_req.status_code
 
 
 if __name__ == '__main__':
@@ -541,6 +541,10 @@ if __name__ == '__main__':
                         help='CSV Delimiter on the input file. Comma by default. To use tab, enter: $\'\\t\'',
                         default=',',
                         required=False)
+    parser.add_argument('-s', '--hashedsource',
+                        help='Load the file whose records have been hashed when second hashing is not required',
+                        default='',
+                        required=False)
     args = parser.parse_args()
 
     validate_env()
@@ -556,7 +560,7 @@ if __name__ == '__main__':
         exit(2)
     if not generate_hitch_csv(read_csv(args.input, args.delimiter, exit_on_failure=True)):
         exit(1)
-    status = load_hashed_records(host, args.uuid, auth, req_ca_verify)
+    status = load_hashed_records(host, args.uuid, auth, req_ca_verify, args.hashedsource)
     if status > 399:
         if status < 500:
             exit(1)
