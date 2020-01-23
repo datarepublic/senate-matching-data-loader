@@ -50,6 +50,10 @@ Options
 :	Write the mapping file to filename when upload is complete. The
 	mapping file will be in CSV format. Use "-" to write to stdout.
 
+--hashed
+: Provide True if the non-primary fields in source file has been hashed
+  to prevent doubling hashing, which could cause poor matching rate.
+  Default value is False
 
 INPUT FORMAT
 ============
