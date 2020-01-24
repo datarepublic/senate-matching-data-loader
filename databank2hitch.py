@@ -546,7 +546,7 @@ if __name__ == '__main__':
                         default=',',
                         required=False)
     parser.add_argument('--hashed',
-                        type=strtobool
+                        type=strtobool,
                         help='Specify True if the file has hashed to skip second hashing',
                         default=False,
                         required=False)
