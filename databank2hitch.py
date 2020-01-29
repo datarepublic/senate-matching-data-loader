@@ -402,10 +402,11 @@ def validate_env():
 
 def clean_buf_env():
     """clean_buf_env makes sure the buffer file does not exists"""
-    try:
-        os.remove(HITCH_BUF_FILENAME)
-    except IOError:
-        pass
+    # HIT-923: disable file removal to debugging file size issue
+    # try:
+    #     os.remove(HITCH_BUF_FILENAME)
+    # except IOError:
+    #     pass
 
 
 def hitch_contributor_node_url(hcn=None):
