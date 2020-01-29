@@ -519,7 +519,7 @@ def load_hashed_records(host, dbuuid, auth, ca_verify=True, hashedFile=''):
             logger.error('Error {}: {}'.format(load_req.status_code, load_req.text.rstrip()))
     except OverflowError as e:
         statinfo = os.stat(src)
-        logger.error('Error: File size {} GB is too large', statinfo.st_size / ( 1024 * 1024 * 1024 )) # bytes to GB
+        logger.error('Error: File size {:3d} GB is too large', statinfo.st_size / ( 1024 * 1024 * 1024 )) # bytes to GB
     finally:
         clean_buf_env()
         if 'load_req' in locals():
