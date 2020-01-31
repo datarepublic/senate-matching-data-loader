@@ -527,6 +527,49 @@ def load_hashed_records(host, dbuuid, auth, ca_verify=True, hashedFile=''):
             return load_req.status_code
         return 500
 
+def get_chunk_file_list(filename, delimiter=","):
+    fileList = []
+    # Check the file size and split it to 50k line chunks if it's larger than single file size limit
+    singleFileSizeLimit = 2 * 1024  * 1024 * 1024 
+    statinfo = os.stat(filename)
+    if statinfo.st_size > singleFileSizeLimit :
+        chunkFolder = "chunks"
+        try:
+            os.makedirs(chunkFolder)
+        except FileExistsError:
+            pass
+        fileList.extend(splitFile(filename))
+    else :
+        fileList.append(filename)
+
+    return fileList
+
+def splitFile(filename, chunkSize = 50 * 1000):    
+    fileList = []
+    chunkFile = None
+    header = None
+
+    with open(filename,'rt') as f:
+        csv_reader = csv.reader(f)
+        try:
+            header = next(csv_reader)
+        except StopIteration:
+            logger.error("Failed to load header from source file {}".format(filename))
+            exit(1)
+        for lineno, line in enumerate(csv_reader):
+            if lineno % chunkSize == 0 :
+                if chunkFile:
+                    chunkFile.close() # reach chunk size, close the current chunk file and start a new one
+                chunkFile_Name = f'chunks/{filename.split("/")[-1]}_chunk_{len(fileList):03d}.csv'
+                fileList.append(chunkFile_Name)
+                chunkFile = open(chunkFile_Name, 'w+')
+                chunkFileWriter = csv.writer(chunkFile)
+                chunkFileWriter.writerow(header)
+            chunkFileWriter.writerow(line)
+        if chunkFile: # close the last chunk file
+            chunkFile.close()
+
+    return fileList
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Loads a CSV that uses Databank column names into "
