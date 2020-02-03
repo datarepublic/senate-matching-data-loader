@@ -95,6 +95,7 @@ MATCH = {}
 MANDATORY_ENVIRONMENT_FIELDS = ['HITCH_CONTRIBUTOR_NODE', 'HITCH_API_KEY']
 HITCH_BUF_FILENAME = '.databank2hitch_script.csv'
 UPLOAD_FILENAME = HITCH_BUF_FILENAME
+RETRY_COUNT = 3
 
 
 # A logger that will print DEBUG and INFO to stdout, WARNING and ERROR to stderr
@@ -499,33 +500,35 @@ def load_hashed_records(host, dbuuid, auth, ca_verify=True, hashedFile=''):
 
     params = {'DBUUID': dbuuid}
     src = HITCH_BUF_FILENAME if hashedFile == '' else hashedFile
-    try:
-        load_req = requests.post(host + 'LoadHashedRecords', params=params,
-                                 auth=auth,
-                                 files={'file': (UPLOAD_FILENAME, open(src, 'rb'),
-                                                 'text/csv')},
-                                 verify=ca_verify)
-        load_req.raise_for_status()
-    except requests.exceptions.SSLError:
-        logger.error("Error: Invalid certificate. Update your environment variables "
-               "by either using your system's trusted CAs with "
-               "REQUESTS_CA_BUNDLE or set REQUESTS_CA_VERIFY to false")
-    except requests.exceptions.ConnectionError:
-        logger.error('Error: contributor node is unreachable')
-    except requests.HTTPError:
+    for i in range(RETRY_COUNT):
         try:
-            format_error = load_req.json()
-            logger.error('Error {}: {} ({})'.format(load_req.status_code, format_error['error'], format_error['code']))
-        except:
-            logger.error('Error {}: {}'.format(load_req.status_code, load_req.text.rstrip()))
-    except OverflowError as e:
-        statinfo = os.stat(src)
-        logger.error('Error: File size {:3d} GB is too large', statinfo.st_size / ( 1024 * 1024 * 1024 )) # bytes to GB
-    finally:
-        clean_buf_env()
-        if 'load_req' in locals():
-            return load_req.status_code
-        return 500
+            load_req = requests.post(host + 'LoadHashedRecords', params=params,
+                                    auth=auth,
+                                    files={'file': (UPLOAD_FILENAME, open(src, 'rb'),
+                                                    'text/csv')},
+                                    verify=ca_verify)
+            load_req.raise_for_status()
+        except requests.exceptions.SSLError:
+            logger.error("Error: Invalid certificate. Update your environment variables "
+                "by either using your system's trusted CAs with "
+                "REQUESTS_CA_BUNDLE or set REQUESTS_CA_VERIFY to false")
+        except requests.exceptions.ConnectionError:
+            logger.error('Error: contributor node is unreachable')
+            continue
+        except requests.HTTPError:
+            try:
+                format_error = load_req.json()
+                logger.error('Error {}: {} ({})'.format(load_req.status_code, format_error['error'], format_error['code']))
+            except:
+                logger.error('Error {}: {}'.format(load_req.status_code, load_req.text.rstrip()))
+        except OverflowError as e:
+            statinfo = os.stat(src)
+            logger.error('Error: File size {:3d} GB is too large', statinfo.st_size / ( 1024 * 1024 * 1024 )) # bytes to GB
+        finally:
+            clean_buf_env()
+            if 'load_req' in locals():
+                return load_req.status_code
+            return 500
 
 def get_chunk_file_list(filename, delimiter=","):
     fileList = []
