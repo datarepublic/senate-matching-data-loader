@@ -73,7 +73,7 @@ DATABANK_SENATE_MATCHING_MAPPING = {
         'normalization': 'uppercase'
     },
     'operation': {
-        'aliases': ['operation'],
+        'aliases': ['operation', 'opr_typr'],
         'mandatory': False,
         'multivalue': False,
         'normalization': 'uppercase',
