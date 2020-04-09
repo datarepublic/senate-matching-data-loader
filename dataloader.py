@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""databank2hitch.py converts a Databank format CSV into a hashed Hitch Senate Matching CSV
+"""dataloader.py converts a Databank format CSV into a hashed Hitch Senate Matching CSV
 and uploads it into the specified Contributor Node"""
 
 import argparse
@@ -93,7 +93,7 @@ DATABANK_HEADERS = {}
 MATCH = {}
 
 MANDATORY_ENVIRONMENT_FIELDS = ['HITCH_CONTRIBUTOR_NODE', 'HITCH_API_KEY']
-HITCH_BUF_FILENAME = '.databank2hitch_script.csv'
+HITCH_BUF_FILENAME = '.dataloader_script.csv'
 UPLOAD_FILENAME = HITCH_BUF_FILENAME
 
 
@@ -181,7 +181,7 @@ def retrieve_salts(hostname, static_auth, ca_verify=True):
 
 def override_temp_buffer_name(some_input):
     """override_temp_buffer_name change the library temporary buffer
-       Does nothing for STIN
+       Does nothing for STDIN
        Change to filename if it's given a file descriptor
        Or set to string elsewise"""
     global UPLOAD_FILENAME
@@ -310,7 +310,7 @@ def normalize(value, normalization_method):
     to transform it in a normalized senate matching format"""
 
     # optional conversion of Asian wide strings to narrow. See Makefile and toNarrow.go
-    exe = os.path.dirname(os.path.realpath(__file__)) + "/tonarrow"
+    exe = os.path.join(os.path.realpath(__file__), "tonarrow")
     if os.path.isfile(exe) and os.access(exe, os.X_OK):
         the_bytes = value.encode('utf-8')
         result = subprocess.run(exe, stdout=subprocess.PIPE, input=the_bytes)
@@ -571,8 +571,7 @@ def splitFile(filename, chunkSize = 50 * 1000):
     return fileList
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Loads a CSV that uses Databank column names into "
-                                                 "Senate Matching Contributor Node")
+    parser = argparse.ArgumentParser(description="A tool to load data from a CSV file into a Senate Matching Contributor Node")
     parser.add_argument('-u', '--uuid', help='UUID to write data into', required=True)
     parser.add_argument('-i', '--input', help='Read from filename. The file must be readable '
                                               'and in CSV format encoded in UTF-8',

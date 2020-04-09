@@ -84,9 +84,9 @@ if __name__ == '__main__':
         if f.endswith('_input.csv'):
             input_fixtures.append(f)
 
-    databank2hitch_path = script_path_base + '/../databank2hitch.py'
+    dataloader_path = script_path_base + '/../dataloader.py'
     for fixture in input_fixtures:
-        cmd = [databank2hitch_path, '--input', fixture, '--uuid', UUID]
+        cmd = [dataloader_path, '--input', fixture, '--uuid', UUID]
         result = subprocess.run(' '.join(cmd), shell=True,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)

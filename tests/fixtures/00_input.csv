@@ -1,3 +1,4 @@
 natural_key, contact_email_address,customer_address, contact_mobile_number
 1,test@datarepublic.com,43 York St,+61468833029
 2,myemail@datarepublic.com.au,12 Bondi Road,4539278392
+3,another.test@datarepublic.com, 4 Unknown Road, 4567898903

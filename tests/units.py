@@ -1,19 +1,19 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""unit tests for databank2hitch.py"""
+"""unit tests for dataloader.py"""
 
 import os
 import unittest
 from requests.auth import HTTPBasicAuth
-import databank2hitch
+import dataloader
 import responses
 import xml.etree.ElementTree as ET
 
 def list_of_aliases():
     """list_of_aliases from DATABANK_SENATE_MATCHING_MAPPING"""
     res = []
-    for field_def in databank2hitch.DATABANK_SENATE_MATCHING_MAPPING:
-        for alias in databank2hitch.DATABANK_SENATE_MATCHING_MAPPING[field_def]['aliases']:
+    for field_def in dataloader.DATABANK_SENATE_MATCHING_MAPPING:
+        for alias in dataloader.DATABANK_SENATE_MATCHING_MAPPING[field_def]['aliases']:
             res.append((alias, field_def))
     return res
 
@@ -27,31 +27,31 @@ def is_int(value):
     return True
 
 
-class TestDatabank2Hitch(unittest.TestCase):
-    """Databank2Hitch Test Class"""
+class TestDataLoader(unittest.TestCase):
+    """DataLoader Test Class"""
 
     def test_find_matching_field(self):
         """test_find_matching_field"""
         for al_tuple in list_of_aliases():
-            self.assertEqual(databank2hitch.find_matching_field(al_tuple[0]), al_tuple[1])
+            self.assertEqual(dataloader.find_matching_field(al_tuple[0]), al_tuple[1])
         for fake_element in ['invalid_test', 'my_email', 'a_phone_number', 123]:
-            self.assertEqual(databank2hitch.find_matching_field(fake_element), None)
+            self.assertEqual(dataloader.find_matching_field(fake_element), None)
 
     def test_mandatory_field(self):
         """test_mandatory_field makes sure personid and natural_key are
         the only two mandatory aliases"""
-        self.assertEqual(databank2hitch.list_mandatory_field_aliases(), {'personid': 'personid',
+        self.assertEqual(dataloader.list_mandatory_field_aliases(), {'personid': 'personid',
                                                                          'natural_key': 'personid'})
 
     def test_filter_and_translator(self):
         """test_filter_and_translator tests the normalization of a phone number and numeric"""
         convert_from = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
         convert_to = "01234567892223334445556667777888999922233344455566677778889999"
-        self.assertEqual(databank2hitch.filter_and_translator('+61468732838abc32',
+        self.assertEqual(dataloader.filter_and_translator('+61468732838abc32',
                                                               convert_from,
                                                               convert_to),
                          '6146873283822232')
-        self.assertEqual(databank2hitch.filter_and_translator('123abc456def',
+        self.assertEqual(dataloader.filter_and_translator('123abc456def',
                                                               '0123456789', ''),
                          '123456')
 
@@ -66,7 +66,7 @@ class TestDatabank2Hitch(unittest.TestCase):
             skip = elem[2].text
             if input is None or expected is None or skip == "true":
                 continue
-            result = databank2hitch.normalize(input, 'name')
+            result = dataloader.normalize(input, 'name')
             self.assertEqual(expected, result)
 
     def test_normalization_other(self):
@@ -83,7 +83,7 @@ class TestDatabank2Hitch(unittest.TestCase):
             if input is None or method is None or expected is None or skip is None or skip == "true":
                 print("skipping: input: {} method: {} expected: {}".format(input, method, expected))
                 continue
-            self.assertEqual(databank2hitch.normalize(input, method), expected, "input: {} method: {} expected: {}".format(input, method, expected))
+            self.assertEqual(dataloader.normalize(input, method), expected, "input: {} method: {} expected: {}".format(input, method, expected))
 
 
     @responses.activate
@@ -118,15 +118,15 @@ class TestDatabank2Hitch(unittest.TestCase):
         responses.add(responses.GET, hostname + 'GlobalConfig',
                       json=global_config, status=200)
         auth = HTTPBasicAuth('api', 'passw0rd')
-        databank2hitch.retrieve_salts(hostname, auth, False)
+        dataloader.retrieve_salts(hostname, auth, False)
         for tpl in [('email', '9da8b01a3ab64fcc8e39ebd5c4cf21e7'),
                     ('phone', 'ff14d4eff61149c193d5b212f2c2d15b')]:
-            self.assertEqual(databank2hitch.DATABANK_SENATE_MATCHING_MAPPING[tpl[0]]['salt'],
+            self.assertEqual(dataloader.DATABANK_SENATE_MATCHING_MAPPING[tpl[0]]['salt'],
                              tpl[1])
 
     def test_senate_hash(self):
         """test_senate_hash"""
-        self.assertEqual(databank2hitch.senate_hash('email', 'anything'),
+        self.assertEqual(dataloader.senate_hash('email', 'anything'),
                          'H8RshG0mb5TVWhHKl28aH7xNZkLg23R/F6akSpHkS9E0joL'
                          'TPh4ueA0U19a0PzLyWZ8HhPbgPUnfosv4ncmePg==')
 
@@ -138,15 +138,15 @@ class TestDatabank2Hitch(unittest.TestCase):
                                                     '/api/Contributor/v1/')]
         for url in urls:
             os.environ['HITCH_CONTRIBUTOR_NODE'] = url[0]
-            self.assertEqual(databank2hitch.hitch_contributor_node_url(), url[1])
+            self.assertEqual(dataloader.hitch_contributor_node_url(), url[1])
 
     def test_parse_headers(self):
         """test_parse_headers"""
         databank_headers = ['natural_key', 'phone', 'email', 'contact_email_address',
                             'fake_phone', 'contact_mobile_number', 'nationalid', 'frequent_flyer_number']
-        self.assertEqual(databank2hitch.parse_headers(databank_headers),
+        self.assertEqual(dataloader.parse_headers(databank_headers),
                          ['personid', 'phone:0', 'email:0', 'email:1', 'phone:1', 'nationalid', 'frequent_flyer_number'])
-        self.assertEqual(databank2hitch.MATCH, {'natural_key': 'personid', 'phone': 'phone:0',
+        self.assertEqual(dataloader.MATCH, {'natural_key': 'personid', 'phone': 'phone:0',
                                                 'email': 'email:0',
                                                 'contact_email_address': 'email:1',
                                                 'contact_mobile_number': 'phone:1',

@@ -2,8 +2,8 @@ init:
 	pipenv install
 
 test: go
-	python -m unittest tests/units.py
-	python ./tests/integration.py
+	pipenv run python -m unittest tests/units.py
+	pipenv run python ./tests/integration.py
 
 go:
 	go get golang.org/x/text/width
