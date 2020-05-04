@@ -10,6 +10,8 @@
 #     (i.e. leading and trailing spaces trimmed, case changed, etc).
 #   - This script assumes the first column is always PersonID which 
 #     will NOT be hashed.
+#   - This script assumes the last column is always Operation which
+#     will NOT be hashed.
 #   - Empty values (blank, undefined, null) should not be
 #     hashed. This script assumes such values evaluate to False
 #     in Python. 
@@ -20,7 +22,6 @@
 import argparse
 import hashlib
 import base64
-import fileinput
 import csv
 import sys
 
@@ -46,7 +47,7 @@ row_count = 0
 for row in csvreader:
     row_count += 1
     if row_count > 1:
-        for i in range(1,len(row)):
+        for i in range(1, len(row) - 1):
             # Do not hash empty strings
             if row[i] and row[i] not in ['-', 'NA', ' ']:
                 hsh = hashlib.sha512((row[i] + args.salt).encode('utf-8'))
