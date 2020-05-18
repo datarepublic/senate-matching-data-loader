@@ -72,6 +72,24 @@ DATABANK_SENATE_MATCHING_MAPPING = {
         'multivalue': False,
         'normalization': 'uppercase'
     },
+    'custom_name': {
+        'aliases': ['custom_name'],
+        'mandatory': False,
+        'multivalue': True,
+        'normalization': 'name'
+    },
+    'birthdate': {
+        'aliases': ['birthdate'],
+        'mandatory': False,
+        'multivalue': False,
+        'normalization': 'numeric'
+    },
+    'postcode': {
+        'aliases': ['postcode'],
+        'mandatory': False,
+        'multivalue': False,
+        'normalization': 'numeric'
+    },
     'operation': {
         'aliases': ['operation', 'opr_typr'],
         'mandatory': False,
@@ -604,7 +622,7 @@ if __name__ == '__main__':
 
     override_temp_buffer_name(args.input)
     if args.hashed:
-        status = load_hashed_records(host, args.uuid, auth, req_ca_verify, args.input)
+        status = load_hashed_records(host, args.uuid, auth, req_ca_verify, args.input.fileno())
     else:
         if not retrieve_salts(host, auth, req_ca_verify):
             exit(2)
